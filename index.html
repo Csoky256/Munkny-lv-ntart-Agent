@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Munkanyilvántartó</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗂️</text></svg>">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-row">
+      <div class="brand">
+        <span class="logo">🗂️</span>
+        <h1 id="appTitle">Munkanyilvántartó</h1>
+      </div>
+      <div class="conn">
+        <span id="connBadge" class="conn-badge local" title="Adattárolás módja">Helyi mód</span>
+        <button class="btn ghost small" id="settingsBtn">⚙️ Beállítások</button>
+      </div>
+    </div>
+    <nav class="tabs" id="tabs"></nav>
+  </header>
+
+  <main>
+    <section class="summary" id="summary"></section>
+
+    <section class="toolbar">
+      <input type="search" id="search" placeholder="Keresés (név, megrendelő, cím, HRSZ…)">
+      <select id="statusFilter"><option value="">Minden állapot</option></select>
+      <select id="payFilter">
+        <option value="">Minden fizetés</option>
+        <option value="Nem fizetett">Nem fizetett</option>
+        <option value="Részben fizetett">Részben fizetett</option>
+        <option value="Kifizetve">Kifizetve</option>
+      </select>
+      <label class="chk"><input type="checkbox" id="hideClosed"> Lezártak elrejtése</label>
+      <div class="spacer"></div>
+      <div class="viewtoggle" id="viewToggle">
+        <button data-view="cards" class="active" title="Kártya nézet">▦</button>
+        <button data-view="table" title="Táblázat nézet">▤</button>
+      </div>
+      <button class="btn primary" id="addBtn">+ Új munka</button>
+    </section>
+
+    <section id="content"></section>
+    <p class="empty" id="emptyState" hidden>Nincs megjeleníthető munka. Hozz létre egyet a „+ Új munka" gombbal.</p>
+  </main>
+
+  <!-- Szerkesztő modál -->
+  <div class="modal-backdrop" id="modal" hidden>
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal-head">
+        <h2 id="modalTitle">Új munka</h2>
+        <button class="icon-btn" id="modalClose" title="Bezár">✕</button>
+      </div>
+      <form id="recordForm" class="form-grid"></form>
+      <div class="modal-foot">
+        <button class="btn danger ghost" id="deleteBtn" type="button" hidden>Törlés</button>
+        <div class="spacer"></div>
+        <button class="btn ghost" id="cancelBtn" type="button">Mégse</button>
+        <button class="btn primary" id="saveBtn" type="button">Mentés</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Beállítások / felhő-kapcsolat modál -->
+  <div class="modal-backdrop" id="settingsModal" hidden>
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal-head">
+        <h2>Beállítások &amp; felhő-szinkron</h2>
+        <button class="icon-btn" id="settingsClose" title="Bezár">✕</button>
+      </div>
+      <div class="settings-body" id="settingsBody"></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" hidden></div>
+  <div class="loader" id="loader"><div class="spinner"></div></div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
