@@ -1,0 +1,4 @@
+# clasp – valós script-azonosító ne kerüljön a repóba
+.clasp.json
+.clasprc.json
+node_modules/

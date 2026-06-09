@@ -1,0 +1,292 @@
+<script>
+  let CFG = null;
+  let currentCat = null;          // aktuális kategória objektum
+  let records = [];               // aktuális kategória rekordjai
+  let editingId = null;           // épp szerkesztett rekord id-je
+
+  const $ = sel => document.querySelector(sel);
+  const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+
+  document.addEventListener('DOMContentLoaded', init);
+
+  function init() {
+    showLoader(true);
+    google.script.run
+      .withSuccessHandler(cfg => { CFG = cfg; buildShell(); selectCategory(cfg.categories[0].key); })
+      .withFailureHandler(onError)
+      .getConfig();
+
+    $('#addBtn').onclick = () => openModal(null);
+    $('#modalClose').onclick = $('#cancelBtn').onclick = closeModal;
+    $('#saveBtn').onclick = save;
+    $('#deleteBtn').onclick = remove;
+    $('#search').oninput = render;
+    $('#statusFilter').onchange = render;
+    $('#hideClosed').onchange = render;
+    $('#modal').addEventListener('click', e => { if (e.target.id === 'modal') closeModal(); });
+  }
+
+  function buildShell() {
+    $('#appTitle').textContent = CFG.appName;
+    const tabs = $('#tabs');
+    tabs.innerHTML = '';
+    CFG.categories.forEach(cat => {
+      const t = el('button', 'tab', (cat.icon ? cat.icon + ' ' : '') + cat.label);
+      t.dataset.key = cat.key;
+      t.onclick = () => selectCategory(cat.key);
+      tabs.appendChild(t);
+    });
+  }
+
+  function selectCategory(key) {
+    currentCat = CFG.categories.find(c => c.key === key);
+    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.key === key));
+    // állapot-szűrő feltöltése
+    const sf = $('#statusFilter');
+    sf.innerHTML = '<option value="">Minden állapot</option>';
+    const statusField = currentCat.fields.find(f => f.key === 'allapot');
+    if (statusField) statusField.options.forEach(o => { const op = el('option', null, o); op.value = o; sf.appendChild(op); });
+    $('#search').value = '';
+    loadRecords();
+  }
+
+  function loadRecords() {
+    showLoader(true);
+    google.script.run
+      .withSuccessHandler(rows => { records = rows || []; showLoader(false); render(); })
+      .withFailureHandler(onError)
+      .listRecords(currentCat.key);
+  }
+
+  /* ----------------------- Megjelenítés ----------------------- */
+
+  function fieldDef(key) { return currentCat.fields.find(f => f.key === key); }
+  function listFields() { return currentCat.fields.filter(f => f.list); }
+
+  function render() {
+    const q = $('#search').value.trim().toLowerCase();
+    const status = $('#statusFilter').value;
+    const hideClosed = $('#hideClosed').checked;
+
+    let rows = records.filter(r => {
+      if (status && r.allapot !== status) return false;
+      if (hideClosed && /lezár/i.test(r.allapot || '')) return false;
+      if (q) {
+        const hay = [r.nev, r.megrendelo, r.cim, r.hrsz, r.etdr, r.munkanem].join(' ').toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+
+    // rendezés: határidő szerint (üres a végére)
+    rows.sort((a, b) => {
+      const da = a.hatarido || '9999', db = b.hatarido || '9999';
+      return da < db ? -1 : da > db ? 1 : 0;
+    });
+
+    renderSummary(rows);
+
+    const wrap = $('#cards');
+    wrap.innerHTML = '';
+    $('#emptyState').hidden = rows.length !== 0;
+    rows.forEach(r => wrap.appendChild(renderCard(r)));
+  }
+
+  function renderSummary(rows) {
+    const total = rows.length;
+    const open = rows.filter(r => !/lezár/i.test(r.allapot || '')).length;
+    const unpaid = rows.filter(r => r.fizetes_statusz && r.fizetes_statusz !== 'Kifizetve').length;
+    const owed = rows.reduce((s, r) => {
+      if (r.fizetes_statusz === 'Kifizetve') return s;
+      const dij = parseNum(r.vallalt_dij), fiz = parseNum(r.fizetett_osszeg);
+      return s + Math.max(dij - fiz, 0);
+    }, 0);
+    const s = $('#summary');
+    s.innerHTML = '';
+    s.appendChild(stat(total, 'munka összesen'));
+    s.appendChild(stat(open, 'nyitott'));
+    s.appendChild(stat(unpaid, 'rendezetlen fizetés'));
+    s.appendChild(stat(formatFt(owed), 'kintlévőség'));
+  }
+  function stat(num, lbl) { const d = el('div', 'stat'); d.appendChild(el('div', 'num', String(num))); d.appendChild(el('div', 'lbl', lbl)); return d; }
+
+  function renderCard(r) {
+    const card = el('div', 'card');
+    card.onclick = () => openModal(r);
+
+    const head = el('div', 'card-head');
+    const left = el('div');
+    left.appendChild(el('div', 'card-title', r[currentCat.titleField] || '(névtelen)'));
+    const subParts = [r.munkanem, r.megrendelo].filter(Boolean);
+    left.appendChild(el('div', 'card-sub', subParts.join(' · ')));
+    head.appendChild(left);
+    if (r.prioritas) head.appendChild(prioBadge(r.prioritas));
+    card.appendChild(head);
+
+    // badge sor: állapot, fizetés, határidő
+    const badges = el('div', 'badges');
+    if (r.allapot) badges.appendChild(statusBadge(r.allapot));
+    if (r.fizetes_statusz) badges.appendChild(payBadge(r.fizetes_statusz));
+    if (r.hatarido) badges.appendChild(dueBadge(r.hatarido));
+    card.appendChild(badges);
+
+    // info sor
+    const row = el('div', 'card-row');
+    if (r.cim) row.appendChild(kv('Cím', r.cim));
+    if (r.hrsz) row.appendChild(kv('HRSZ', r.hrsz));
+    if (r.vallalt_dij) row.appendChild(kv('Díj', formatFt(parseNum(r.vallalt_dij))));
+    card.appendChild(row);
+
+    if (r.kovetkezo_teendo) {
+      const next = el('div', 'card-row');
+      next.appendChild(kv('Köv. teendő', r.kovetkezo_teendo));
+      card.appendChild(next);
+    }
+    return card;
+  }
+
+  function kv(k, v) { const s = el('span'); s.innerHTML = '<b>' + esc(k) + ':</b> ' + esc(v); return s; }
+
+  function statusBadge(v) {
+    let cls = 'blue';
+    if (/lezár|jóváhagy|kész/i.test(v)) cls = 'green';
+    else if (/hiánypótl|felfügg/i.test(v)) cls = 'amber';
+    return badge(v, cls);
+  }
+  function payBadge(v) {
+    let cls = v === 'Kifizetve' ? 'green' : v === 'Részben fizetett' ? 'amber' : 'red';
+    return badge('💰 ' + v, cls);
+  }
+  function prioBadge(v) {
+    let cls = /sürg|magas/i.test(v) ? 'red' : /közepes/i.test(v) ? 'amber' : '';
+    return badge(v, cls);
+  }
+  function dueBadge(dateStr) {
+    const today = new Date(); today.setHours(0,0,0,0);
+    const d = new Date(dateStr + 'T00:00:00');
+    const diff = Math.round((d - today) / 86400000);
+    let cls = '', prefix = '📅 ';
+    if (diff < 0) { cls = 'due'; prefix = '⚠️ lejárt: '; }
+    else if (diff <= 7) { cls = 'soon'; prefix = '⏳ '; }
+    return badge(prefix + dateStr, cls);
+  }
+  function badge(txt, cls) { return el('span', 'badge ' + (cls || ''), txt); }
+
+  /* ----------------------- Modál / űrlap ----------------------- */
+
+  function openModal(rec) {
+    editingId = rec ? rec.__id : null;
+    $('#modalTitle').textContent = rec ? 'Munka szerkesztése' : 'Új munka – ' + currentCat.label;
+    $('#deleteBtn').hidden = !rec;
+    const form = $('#recordForm');
+    form.innerHTML = '';
+    currentCat.fields.forEach(f => form.appendChild(buildField(f, rec ? rec[f.key] : '')));
+    $('#modal').hidden = false;
+  }
+  function closeModal() { $('#modal').hidden = true; editingId = null; }
+
+  function buildField(f, value) {
+    const wrap = el('div', 'field' + (isWide(f) ? ' full' : ''));
+    const lab = el('label', f.required ? 'req' : null, f.label);
+    lab.htmlFor = 'f_' + f.key;
+    let input;
+    switch (f.type) {
+      case 'textarea':
+        input = el('textarea'); input.value = value || ''; break;
+      case 'number':
+        input = el('input'); input.type = 'number'; input.value = value || ''; break;
+      case 'date':
+        input = el('input'); input.type = 'date'; input.value = value || ''; break;
+      case 'select':
+        input = el('select');
+        input.appendChild(el('option', null, '—'));
+        f.options.forEach(o => { const op = el('option', null, o); op.value = o; if (o === value) op.selected = true; input.appendChild(op); });
+        break;
+      case 'bool':
+        wrap.classList.add('switch');
+        input = el('input'); input.type = 'checkbox';
+        input.checked = (value === true || value === 'Igen' || value === 'igen');
+        break;
+      case 'multiselect': {
+        const box = el('div', 'ms');
+        const sel = String(value || '').split(';').map(s => s.trim());
+        f.options.forEach(o => {
+          const l = el('label');
+          const cb = el('input'); cb.type = 'checkbox'; cb.value = o; cb.dataset.ms = f.key;
+          if (sel.includes(o)) cb.checked = true;
+          l.appendChild(cb); l.appendChild(document.createTextNode(' ' + o));
+          box.appendChild(l);
+        });
+        input = box;
+        break;
+      }
+      default:
+        input = el('input'); input.type = 'text'; input.value = value || '';
+    }
+    if (f.type !== 'multiselect') input.id = 'f_' + f.key;
+    input.dataset.key = f.key;
+    input.dataset.type = f.type;
+    if (f.type === 'bool') { // checkbox címke a mező mellé
+      wrap.appendChild(lab); wrap.appendChild(input);
+    } else {
+      wrap.appendChild(lab); wrap.appendChild(input);
+    }
+    return wrap;
+  }
+  function isWide(f) { return f.type === 'textarea' || f.type === 'multiselect'; }
+
+  function collectForm() {
+    const rec = { __id: editingId || '' };
+    currentCat.fields.forEach(f => {
+      if (f.type === 'multiselect') {
+        const vals = Array.from(document.querySelectorAll('[data-ms="' + f.key + '"]:checked')).map(c => c.value);
+        rec[f.key] = vals;
+      } else if (f.type === 'bool') {
+        rec[f.key] = $('#f_' + f.key).checked;
+      } else {
+        const node = $('#f_' + f.key);
+        let v = node.value;
+        if (f.type === 'select' && v === '—') v = '';
+        rec[f.key] = v;
+      }
+    });
+    return rec;
+  }
+
+  function save() {
+    const rec = collectForm();
+    const titleField = currentCat.fields.find(f => f.required);
+    if (titleField && !String(rec[titleField.key]).trim()) {
+      toast('A(z) „' + titleField.label + '" mező kötelező.');
+      return;
+    }
+    showLoader(true);
+    google.script.run
+      .withSuccessHandler(() => { showLoader(false); closeModal(); toast('Mentve ✓'); loadRecords(); })
+      .withFailureHandler(onError)
+      .saveRecord(currentCat.key, rec);
+  }
+
+  function remove() {
+    if (!editingId) return;
+    if (!confirm('Biztosan törlöd ezt a munkát? A művelet nem vonható vissza.')) return;
+    showLoader(true);
+    google.script.run
+      .withSuccessHandler(() => { showLoader(false); closeModal(); toast('Törölve'); loadRecords(); })
+      .withFailureHandler(onError)
+      .deleteRecord(currentCat.key, editingId);
+  }
+
+  /* ----------------------- Segédek ----------------------- */
+
+  function parseNum(v) { const n = parseFloat(String(v).replace(/\s/g, '').replace(',', '.')); return isNaN(n) ? 0 : n; }
+  function formatFt(n) { return (n || 0).toLocaleString('hu-HU') + ' Ft'; }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+  function showLoader(on) { $('#loader').classList.toggle('on', on); }
+  let toastTimer;
+  function toast(msg) {
+    const t = $('#toast'); t.textContent = msg; t.hidden = false;
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => t.hidden = true, 2600);
+  }
+  function onError(err) { showLoader(false); toast('Hiba: ' + (err && err.message ? err.message : err)); console.error(err); }
+</script>
