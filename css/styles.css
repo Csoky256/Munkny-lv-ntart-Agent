@@ -95,6 +95,7 @@ table.grid tbody tr:hover { background: #f5f8ff; }
 
 /* Modál */
 .modal-backdrop { position: fixed; inset: 0; background: rgba(16,24,40,.45); display: flex; align-items: flex-start; justify-content: center; padding: 24px 12px; z-index: 50; overflow: auto; }
+.modal-backdrop[hidden] { display: none; }  /* a `hidden` attribútum legyen erősebb a display: flex-nél */
 .modal { background: #fff; border-radius: 14px; width: 100%; max-width: 720px; box-shadow: 0 12px 40px rgba(16,24,40,.25); display: flex; flex-direction: column; max-height: calc(100vh - 48px); }
 .modal-head { display: flex; justify-content: space-between; align-items: center; padding: 16px 18px; border-bottom: 1px solid var(--line); }
 .modal-foot { display: flex; gap: 8px; align-items: center; padding: 14px 18px; border-top: 1px solid var(--line); }
