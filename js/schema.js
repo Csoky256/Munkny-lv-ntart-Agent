@@ -15,6 +15,51 @@
  *   - `badge: true`    -> színes címke a kártyán
  */
 
+/**
+ * Építészeti mezőkészlet. Közös, hogy több fül (pl. Építészet és BKM Zrt.)
+ * pontosan ugyanazokat a mezőket használhassa. Ha külön akarod szabni őket,
+ * másold le ezt a tömböt az adott kategóriához és ott módosítsd.
+ */
+const EPITESZET_FIELDS = [
+  { key: 'nev', label: 'Projekt megnevezése', type: 'text', required: true, list: true },
+  { key: 'munkanem', label: 'Munkanem', type: 'select', list: true, options: [
+      'Hatósági bizonyítvány', 'Fennmaradási engedély', 'Építési engedély',
+      'Egyszerű bejelentés', 'Építészeti rajzolás', 'Tartószerkezeti rajzolás'
+  ]},
+  { key: 'allapot', label: 'Jelenlegi állapot', type: 'select', list: true, badge: true, options: [
+      'Egyeztetés alatt', 'Adatgyűjtés', 'Felmérés', 'Tervezés folyamatban',
+      'Egyeztetésre vár', 'Hatóságnál / beadva', 'Hiánypótlás', 'Jóváhagyva',
+      'Lezárva', 'Felfüggesztve'
+  ]},
+  { key: 'cel', label: 'Cél (mit kell elérni)', type: 'textarea' },
+  { key: 'hatarido', label: 'Határidő', type: 'date', list: true },
+  { key: 'prioritas', label: 'Prioritás', type: 'select', list: true, options: [
+      'Alacsony', 'Közepes', 'Magas', 'Sürgős'
+  ]},
+  { key: 'szakag_kell', label: 'Kell-e szakág bevonása', type: 'bool' },
+  { key: 'szakagak', label: 'Bevonandó szakág(ak)', type: 'multiselect', options: [
+      'Gépész', 'Elektromos', 'Statikus', 'Földmérő'
+  ]},
+  { key: 'cim', label: 'Ingatlan címe', type: 'text' },
+  { key: 'hrsz', label: 'Helyrajzi szám (HRSZ)', type: 'text' },
+  { key: 'etdr', label: 'ÉTDR / ügyiratszám', type: 'text' },
+  { key: 'megrendelo', label: 'Megrendelő', type: 'text', list: true },
+  { key: 'megrendelo_elerhetoseg', label: 'Megrendelő elérhetősége (tel./e-mail)', type: 'text' },
+  { key: 'vallalt_dij', label: 'Vállalt díj (Ft)', type: 'number', list: true },
+  { key: 'fizetes_statusz', label: 'Fizetés státusza', type: 'select', list: true, badge: true, options: [
+      'Nem fizetett', 'Részben fizetett', 'Kifizetve'
+  ]},
+  { key: 'fizetett_osszeg', label: 'Fizetett összeg (Ft)', type: 'number' },
+  { key: 'szamlazva', label: 'Számlázva', type: 'select', options: [
+      'Nincs', 'Kiállítva', 'Kifizetve'
+  ]},
+  { key: 'utolso_egyeztetes', label: 'Utolsó egyeztetés dátuma', type: 'date' },
+  { key: 'megrendelonek_mondva', label: 'Mit mondtam a megrendelőnek', type: 'textarea' },
+  { key: 'kovetkezo_teendo', label: 'Következő teendő', type: 'text' },
+  { key: 'dok_link', label: 'Dokumentumok linkje (Drive)', type: 'text' },
+  { key: 'megjegyzes', label: 'Megjegyzés', type: 'textarea' }
+];
+
 export const CONFIG = {
   appName: 'Munkanyilvántartó',
   categories: [
@@ -23,45 +68,7 @@ export const CONFIG = {
       label: 'Építészeti munkák',
       icon: '📐',
       titleField: 'nev',
-      fields: [
-        { key: 'nev', label: 'Projekt megnevezése', type: 'text', required: true, list: true },
-        { key: 'munkanem', label: 'Munkanem', type: 'select', list: true, options: [
-            'Hatósági bizonyítvány', 'Fennmaradási engedély', 'Építési engedély',
-            'Egyszerű bejelentés', 'Építészeti rajzolás', 'Tartószerkezeti rajzolás'
-        ]},
-        { key: 'allapot', label: 'Jelenlegi állapot', type: 'select', list: true, badge: true, options: [
-            'Egyeztetés alatt', 'Adatgyűjtés', 'Felmérés', 'Tervezés folyamatban',
-            'Egyeztetésre vár', 'Hatóságnál / beadva', 'Hiánypótlás', 'Jóváhagyva',
-            'Lezárva', 'Felfüggesztve'
-        ]},
-        { key: 'cel', label: 'Cél (mit kell elérni)', type: 'textarea' },
-        { key: 'hatarido', label: 'Határidő', type: 'date', list: true },
-        { key: 'prioritas', label: 'Prioritás', type: 'select', list: true, options: [
-            'Alacsony', 'Közepes', 'Magas', 'Sürgős'
-        ]},
-        { key: 'szakag_kell', label: 'Kell-e szakág bevonása', type: 'bool' },
-        { key: 'szakagak', label: 'Bevonandó szakág(ak)', type: 'multiselect', options: [
-            'Gépész', 'Elektromos', 'Statikus', 'Földmérő'
-        ]},
-        { key: 'cim', label: 'Ingatlan címe', type: 'text' },
-        { key: 'hrsz', label: 'Helyrajzi szám (HRSZ)', type: 'text' },
-        { key: 'etdr', label: 'ÉTDR / ügyiratszám', type: 'text' },
-        { key: 'megrendelo', label: 'Megrendelő', type: 'text', list: true },
-        { key: 'megrendelo_elerhetoseg', label: 'Megrendelő elérhetősége (tel./e-mail)', type: 'text' },
-        { key: 'vallalt_dij', label: 'Vállalt díj (Ft)', type: 'number', list: true },
-        { key: 'fizetes_statusz', label: 'Fizetés státusza', type: 'select', list: true, badge: true, options: [
-            'Nem fizetett', 'Részben fizetett', 'Kifizetve'
-        ]},
-        { key: 'fizetett_osszeg', label: 'Fizetett összeg (Ft)', type: 'number' },
-        { key: 'szamlazva', label: 'Számlázva', type: 'select', options: [
-            'Nincs', 'Kiállítva', 'Kifizetve'
-        ]},
-        { key: 'utolso_egyeztetes', label: 'Utolsó egyeztetés dátuma', type: 'date' },
-        { key: 'megrendelonek_mondva', label: 'Mit mondtam a megrendelőnek', type: 'textarea' },
-        { key: 'kovetkezo_teendo', label: 'Következő teendő', type: 'text' },
-        { key: 'dok_link', label: 'Dokumentumok linkje (Drive)', type: 'text' },
-        { key: 'megjegyzes', label: 'Megjegyzés', type: 'textarea' }
-      ]
+      fields: EPITESZET_FIELDS
     },
     {
       key: 'energetika',
@@ -98,6 +105,13 @@ export const CONFIG = {
         { key: 'dok_link', label: 'Dokumentumok linkje (Drive)', type: 'text' },
         { key: 'megjegyzes', label: 'Megjegyzés', type: 'textarea' }
       ]
+    },
+    {
+      key: 'bkm',
+      label: 'BKM Zrt.',
+      icon: '🏢',
+      titleField: 'nev',
+      fields: EPITESZET_FIELDS  // ugyanazok a mezők, mint az építészeti fülnél
     }
   ]
 };
