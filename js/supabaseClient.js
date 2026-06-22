@@ -22,10 +22,15 @@ export function getSupabaseConfig() {
   }
 }
 
+/** URL normalizálása: szóközök és a végén lévő perjel(ek) levágása (dupla // elkerülése) */
+function normalizeUrl(url) {
+  return String(url || '').trim().replace(/\/+$/, '');
+}
+
 /** Konfiguráció mentése / törlése (null törli) */
 export function setSupabaseConfig(cfg) {
   if (cfg && cfg.url && cfg.anonKey) {
-    localStorage.setItem(CFG_KEY, JSON.stringify({ url: cfg.url.trim(), anonKey: cfg.anonKey.trim() }));
+    localStorage.setItem(CFG_KEY, JSON.stringify({ url: normalizeUrl(cfg.url), anonKey: cfg.anonKey.trim() }));
   } else {
     localStorage.removeItem(CFG_KEY);
   }
@@ -44,8 +49,9 @@ export async function getClient() {
   const cfg = getSupabaseConfig();
   if (!cfg) throw new Error('Nincs megadva Supabase kapcsolat.');
   if (!clientPromise) {
+    const url = normalizeUrl(cfg.url);
     clientPromise = import(CDN).then(({ createClient }) =>
-      createClient(cfg.url, cfg.anonKey, {
+      createClient(url, cfg.anonKey.trim(), {
         auth: { persistSession: true, autoRefreshToken: true }
       })
     );
