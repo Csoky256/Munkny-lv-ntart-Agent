@@ -140,7 +140,11 @@ function renderJournalView() {
 
   $('#emptyState').hidden = true;
   const content = $('#content'); content.innerHTML = '';
-  content.appendChild(renderJournal(entries, { onAdd: addJournalEntry, onDelete: deleteJournalEntry }));
+  content.appendChild(renderJournal(entries, {
+    onAdd: addJournalEntry,
+    onDelete: deleteJournalEntry,
+    meta: { who: (state.user && state.user.email) || '' }
+  }));
 }
 
 function miniStat(num, lbl) {

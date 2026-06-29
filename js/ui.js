@@ -46,6 +46,17 @@ function isOverdue(dateStr) {
   const t = new Date(); t.setHours(0, 0, 0, 0);
   return d < t;
 }
+function ymd(d) {
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+/** Az aktuális hét hétfő–vasárnap dátumai */
+function weekRange() {
+  const now = new Date(); now.setHours(0, 0, 0, 0);
+  const offset = (now.getDay() + 6) % 7;
+  const monday = new Date(now); monday.setDate(now.getDate() - offset);
+  const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
+  return { monday, sunday };
+}
 
 export function showLoader(on) { $('#loader').classList.toggle('on', !!on); }
 let toastTimer;
@@ -304,6 +315,15 @@ function buildField(f, value) {
 export function renderJournal(entries, handlers) {
   const wrap = el('div', 'journal');
 
+  // Fejléc: cím + heti nyomtatás gomb
+  const bar = el('div', 'journal-bar');
+  bar.appendChild(el('h3', null, 'Napi napló'));
+  const printBtn = el('button', 'btn small', '🖨️ Hét nyomtatása');
+  printBtn.type = 'button';
+  printBtn.onclick = () => printJournalWeek(entries, handlers && handlers.meta);
+  bar.appendChild(printBtn);
+  wrap.appendChild(bar);
+
   // Hozzáadó sor
   const add = el('div', 'journal-add');
   const dateIn = el('input'); dateIn.type = 'date'; dateIn.value = todayStr();
@@ -347,6 +367,44 @@ export function renderJournal(entries, handlers) {
     wrap.appendChild(day);
   });
   return wrap;
+}
+
+/** Az aktuális hét bejegyzéseinek nyomtatása tiszta, nyomtatható lapon */
+export function printJournalWeek(entries, meta) {
+  const inWeek = (entries || []).filter(e => isThisWeek(e.datum));
+  const { monday, sunday } = weekRange();
+  const byDay = {};
+  inWeek.forEach(e => { (byDay[e.datum] = byDay[e.datum] || []).push(e); });
+  const days = Object.keys(byDay).sort();   // időrendben
+
+  const body = days.length
+    ? days.map(d => {
+        const items = byDay[d].map(e => '<li>' + esc(e.szoveg) + '</li>').join('');
+        return '<section class="day"><h2>' + esc(formatDateHu(d)) + '</h2><ul>' + items + '</ul></section>';
+      }).join('')
+    : '<p class="empty">Ezen a héten nincs bejegyzés.</p>';
+
+  const who = meta && meta.who ? '<div class="who">' + esc(meta.who) + '</div>' : '';
+  const range = ymd(monday) + ' – ' + ymd(sunday);
+  const doc =
+    '<!DOCTYPE html><html lang="hu"><head><meta charset="utf-8">' +
+    '<title>BKM Zrt. – Heti munkanapló (' + range + ')</title><style>' +
+    'body{font-family:Arial,Helvetica,sans-serif;color:#1f2733;margin:32px;line-height:1.5;}' +
+    'h1{font-size:20px;margin:0 0 4px;} .range{color:#555;} .who{color:#555;margin-bottom:16px;}' +
+    'h2{font-size:15px;margin:18px 0 6px;border-bottom:1px solid #ccc;padding-bottom:3px;}' +
+    'ul{margin:0 0 0 20px;padding:0;} li{margin:3px 0;} .empty{color:#777;}' +
+    '.pbar{margin-bottom:18px;} button{padding:8px 14px;font-size:14px;cursor:pointer;}' +
+    '@media print{.pbar{display:none;}}</style></head><body>' +
+    '<div class="pbar"><button onclick="window.print()">🖨️ Nyomtatás</button></div>' +
+    '<h1>BKM Zrt. – Heti munkanapló</h1>' +
+    '<div class="range">Hét: ' + range + '</div>' + who +
+    body + '</body></html>';
+
+  const w = window.open('', '_blank');
+  if (!w) { toast('A nyomtatási ablakot a böngésző blokkolta – engedélyezd a felugró ablakot.'); return; }
+  w.document.open(); w.document.write(doc); w.document.close();
+  w.focus();
+  setTimeout(() => { try { w.print(); } catch (e) { /* a felhasználó a gombbal is nyomtathat */ } }, 400);
 }
 
 /** Napló-statisztika az összesítő sávhoz */

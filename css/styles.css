@@ -133,6 +133,7 @@ table.grid tbody tr:hover { background: #f5f8ff; }
 
 /* Napi napló nézet (önálló) */
 .journal { background: var(--card); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); padding: 16px; }
+.journal-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
 .journal-add { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding-bottom: 14px; margin-bottom: 14px; border-bottom: 1px solid var(--line); }
 .journal-add input[type="date"] { width: auto; border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; font-size: 14px; }
 .journal-add input[type="text"] { flex: 1; min-width: 200px; border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; font-size: 14px; }
