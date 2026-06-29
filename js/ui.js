@@ -20,6 +20,33 @@ export const parseNum = v => {
 };
 export const formatFt = n => (n || 0).toLocaleString('hu-HU') + ' Ft';
 
+/* dátum-segédek (napi naplóhoz) */
+const HU_DAYS = ['vasárnap', 'hétfő', 'kedd', 'szerda', 'csütörtök', 'péntek', 'szombat'];
+function todayStr() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function formatDateHu(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr + 'T00:00:00');
+  return dateStr.slice(5) + ' ' + (HU_DAYS[d.getDay()] || '');
+}
+function isThisWeek(dateStr) {
+  if (!dateStr) return false;
+  const d = new Date(dateStr + 'T00:00:00');
+  const now = new Date(); now.setHours(0, 0, 0, 0);
+  const offset = (now.getDay() + 6) % 7;             // hétfő = 0
+  const monday = new Date(now); monday.setDate(now.getDate() - offset);
+  const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6); sunday.setHours(23, 59, 59, 999);
+  return d >= monday && d <= sunday;
+}
+function isOverdue(dateStr) {
+  if (!dateStr) return false;
+  const d = new Date(dateStr + 'T00:00:00');
+  const t = new Date(); t.setHours(0, 0, 0, 0);
+  return d < t;
+}
+
 export function showLoader(on) { $('#loader').classList.toggle('on', !!on); }
 let toastTimer;
 export function toast(msg) {
@@ -46,19 +73,28 @@ export function populateStatusFilter(category) {
 }
 
 /* ----------------------- összesítő ----------------------- */
-export function renderSummary(rows) {
+export function renderSummary(rows, category) {
+  const hasPay = category && category.fields.some(f => f.key === 'fizetes_statusz');
+  const naploField = category && category.fields.find(f => f.type === 'naplo');
   const total = rows.length;
   const open = rows.filter(r => !/lezár/i.test(r.allapot || '')).length;
-  const unpaid = rows.filter(r => r.fizetes_statusz && r.fizetes_statusz !== 'Kifizetve').length;
-  const owed = rows.reduce((s, r) => {
-    if (r.fizetes_statusz === 'Kifizetve') return s;
-    return s + Math.max(parseNum(r.vallalt_dij) - parseNum(r.fizetett_osszeg), 0);
-  }, 0);
   const s = $('#summary'); s.innerHTML = '';
   s.appendChild(stat(total, 'munka összesen'));
   s.appendChild(stat(open, 'nyitott'));
-  s.appendChild(stat(unpaid, 'rendezetlen fizetés'));
-  s.appendChild(stat(formatFt(owed), 'kintlévőség'));
+  if (hasPay) {
+    const unpaid = rows.filter(r => r.fizetes_statusz && r.fizetes_statusz !== 'Kifizetve').length;
+    const owed = rows.reduce((sum, r) => r.fizetes_statusz === 'Kifizetve'
+      ? sum : sum + Math.max(parseNum(r.vallalt_dij) - parseNum(r.fizetett_osszeg), 0), 0);
+    s.appendChild(stat(unpaid, 'rendezetlen fizetés'));
+    s.appendChild(stat(formatFt(owed), 'kintlévőség'));
+  } else {
+    const overdue = rows.filter(r => isOverdue(r.hatarido) && !/lezár/i.test(r.allapot || '')).length;
+    s.appendChild(stat(overdue, 'lejárt határidő'));
+    if (naploField) {
+      const wk = rows.filter(r => Array.isArray(r[naploField.key]) && r[naploField.key].some(e => isThisWeek(e.datum))).length;
+      s.appendChild(stat(wk, 'naplózva ezen a héten'));
+    }
+  }
 }
 function stat(num, lbl) {
   const d = el('div', 'stat');
@@ -128,6 +164,22 @@ function renderCard(r, category, onOpen) {
     next.appendChild(kv('Köv. teendő', r.kovetkezo_teendo));
     card.appendChild(next);
   }
+
+  // Napi munkanapló összegzése a kártyán (ha van ilyen mező a kategóriában)
+  const naploField = category.fields.find(f => f.type === 'naplo');
+  if (naploField && Array.isArray(r[naploField.key]) && r[naploField.key].length) {
+    const entries = r[naploField.key].slice().sort((a, b) => (a.datum < b.datum ? 1 : -1));
+    const last = entries[0];
+    const naploRow = el('div', 'card-row');
+    naploRow.appendChild(kv('Napló', last.datum.slice(5) + ': ' + last.szoveg));
+    card.appendChild(naploRow);
+    const weekCount = entries.filter(e => isThisWeek(e.datum)).length;
+    if (weekCount) {
+      const b = el('div', 'badges');
+      b.appendChild(badge('📝 ' + weekCount + ' bejegyzés ezen a héten', 'blue'));
+      card.appendChild(b);
+    }
+  }
   return card;
 }
 function kv(k, v) { const s = el('span'); s.innerHTML = '<b>' + esc(k) + ':</b> ' + esc(v); return s; }
@@ -166,7 +218,21 @@ export function buildForm(category, record) {
   const form = $('#recordForm'); form.innerHTML = '';
   category.fields.forEach(f => form.appendChild(buildField(f, record ? record[f.key] : '')));
 }
-function isWide(f) { return f.type === 'textarea' || f.type === 'multiselect'; }
+function isWide(f) { return f.type === 'textarea' || f.type === 'multiselect' || f.type === 'naplo'; }
+
+/** Egy napló-bejegyzés sora (dátum + szöveg + törlés), aktuális hét kiemelve */
+function naploEntryEl(datum, szoveg) {
+  const row = el('div', 'naplo-item' + (isThisWeek(datum) ? ' thisweek' : ''));
+  row.dataset.datum = datum;
+  row.dataset.szoveg = szoveg;
+  row.appendChild(el('span', 'naplo-date', formatDateHu(datum)));
+  row.appendChild(el('span', 'naplo-text', szoveg));
+  const del = el('button', 'naplo-del', '✕'); del.type = 'button';
+  del.title = 'Bejegyzés törlése';
+  del.onclick = () => row.remove();
+  row.appendChild(del);
+  return row;
+}
 function buildField(f, value) {
   const wrap = el('div', 'field' + (isWide(f) ? ' full' : '') + (f.type === 'bool' ? ' switch' : ''));
   const lab = el('label', f.required ? 'req' : null, f.label);
@@ -185,6 +251,30 @@ function buildField(f, value) {
       input = el('input'); input.type = 'checkbox';
       input.checked = (value === true || value === 'Igen' || value === 'igen');
       break;
+    case 'naplo': {
+      input = el('div', 'naplo');
+      const list = el('div', 'naplo-list');
+      const entries = (Array.isArray(value) ? value.slice() : [])
+        .sort((a, b) => (a.datum < b.datum ? 1 : -1));     // legújabb elöl
+      entries.forEach(e => list.appendChild(naploEntryEl(e.datum, e.szoveg)));
+      input.appendChild(list);
+
+      const addRow = el('div', 'naplo-add');
+      const dateIn = el('input'); dateIn.type = 'date'; dateIn.value = todayStr();
+      const textIn = el('input'); textIn.type = 'text'; textIn.placeholder = 'Mit csináltam ma…';
+      const addBtn = el('button', 'btn small primary', '+ Hozzáad'); addBtn.type = 'button';
+      addBtn.onclick = () => {
+        const t = textIn.value.trim();
+        if (!t) return;
+        list.insertBefore(naploEntryEl(dateIn.value || todayStr(), t), list.firstChild);
+        textIn.value = '';
+        textIn.focus();
+      };
+      textIn.addEventListener('keydown', ev => { if (ev.key === 'Enter') { ev.preventDefault(); addBtn.click(); } });
+      addRow.appendChild(dateIn); addRow.appendChild(textIn); addRow.appendChild(addBtn);
+      input.appendChild(addRow);
+      break;
+    }
     case 'multiselect': {
       const box = el('div', 'ms');
       const sel = String(value || '').split(';').map(s => s.trim());
@@ -211,6 +301,11 @@ export function collectForm(category, editingId) {
   category.fields.forEach(f => {
     if (f.type === 'multiselect') {
       rec[f.key] = Array.from(document.querySelectorAll('[data-ms="' + f.key + '"]:checked')).map(c => c.value).join('; ');
+    } else if (f.type === 'naplo') {
+      const cont = $('#f_' + f.key);
+      rec[f.key] = cont
+        ? Array.from(cont.querySelectorAll('.naplo-item')).map(it => ({ datum: it.dataset.datum, szoveg: it.dataset.szoveg }))
+        : [];
     } else if (f.type === 'bool') {
       rec[f.key] = $('#f_' + f.key).checked ? 'Igen' : 'Nem';
     } else {

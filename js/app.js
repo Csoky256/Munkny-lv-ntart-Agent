@@ -126,7 +126,7 @@ function render() {
 
   rows.sort((a, b) => (a.hatarido || '9999') < (b.hatarido || '9999') ? -1 : 1);
 
-  renderSummary(rows);
+  renderSummary(rows, cat);
 
   const content = $('#content');
   content.innerHTML = '';

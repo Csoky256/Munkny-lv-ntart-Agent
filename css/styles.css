@@ -126,6 +126,19 @@ table.grid tbody tr:hover { background: #f5f8ff; }
 .steps { margin: 8px 0 0 18px; padding: 0; color: var(--muted); font-size: 13px; }
 .steps li { margin: 4px 0; }
 
+/* Napi munkanapló mező */
+.naplo { display: flex; flex-direction: column; gap: 10px; }
+.naplo-list { display: flex; flex-direction: column; gap: 6px; }
+.naplo-item { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+.naplo-item.thisweek { border-color: #bcd0fb; background: #f5f8ff; }
+.naplo-date { font-weight: 700; font-size: 12px; color: var(--brand); white-space: nowrap; }
+.naplo-text { flex: 1; font-size: 13px; }
+.naplo-del { border: none; background: none; color: var(--muted); cursor: pointer; font-size: 13px; padding: 2px 4px; }
+.naplo-del:hover { color: var(--danger); }
+.naplo-add { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.naplo-add input[type="date"] { width: auto; }
+.naplo-add input[type="text"] { flex: 1; min-width: 140px; }
+
 /* Toast + loader */
 .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #1f2733; color: #fff; padding: 11px 18px; border-radius: 10px; font-size: 14px; z-index: 100; box-shadow: var(--shadow); }
 .loader { position: fixed; inset: 0; background: rgba(255,255,255,.6); display: none; align-items: center; justify-content: center; z-index: 200; }

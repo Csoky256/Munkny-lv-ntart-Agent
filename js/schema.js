@@ -60,6 +60,19 @@ const EPITESZET_FIELDS = [
   { key: 'megjegyzes', label: 'Megjegyzés', type: 'textarea' }
 ];
 
+/**
+ * BKM Zrt. mezőkészlet: az építészeti mezők fizetés nélkül, plusz egy
+ * "Napi munkanapló" mező (dátumozott bejegyzések) a heti pénteki meetinghez.
+ */
+const BKM_FIELDS = (() => {
+  const PAYMENT = ['vallalt_dij', 'fizetes_statusz', 'fizetett_osszeg', 'szamlazva'];
+  const base = EPITESZET_FIELDS.filter(f => !PAYMENT.includes(f.key));
+  const naplo = { key: 'naplo', label: 'Napi munkanapló (a pénteki meetinghez)', type: 'naplo' };
+  const idx = base.findIndex(f => f.key === 'cel');           // a Cél után helyezzük
+  base.splice(idx + 1, 0, naplo);
+  return base;
+})();
+
 export const CONFIG = {
   appName: 'Munkanyilvántartó',
   categories: [
@@ -111,7 +124,7 @@ export const CONFIG = {
       label: 'BKM Zrt.',
       icon: '🏢',
       titleField: 'nev',
-      fields: EPITESZET_FIELDS  // ugyanazok a mezők, mint az építészeti fülnél
+      fields: BKM_FIELDS  // építészeti mezők fizetés nélkül + napi munkanapló
     }
   ]
 };
