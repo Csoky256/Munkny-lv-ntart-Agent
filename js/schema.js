@@ -61,17 +61,25 @@ const EPITESZET_FIELDS = [
 ];
 
 /**
- * BKM Zrt. mezőkészlet: az építészeti mezők fizetés nélkül, plusz egy
- * "Napi munkanapló" mező (dátumozott bejegyzések) a heti pénteki meetinghez.
+ * BKM Zrt. – letisztult "Új munka" mezők. Csak a lényeg: mi a feladat,
+ * ki kérte, határidő, megjegyzés. A státusz a feladatok lezárását teszi
+ * lehetővé. A napi naplózás külön kezelt (lásd BKM_NAPLO_KEY).
  */
-const BKM_FIELDS = (() => {
-  const PAYMENT = ['vallalt_dij', 'fizetes_statusz', 'fizetett_osszeg', 'szamlazva'];
-  const base = EPITESZET_FIELDS.filter(f => !PAYMENT.includes(f.key));
-  const naplo = { key: 'naplo', label: 'Napi munkanapló (a pénteki meetinghez)', type: 'naplo' };
-  const idx = base.findIndex(f => f.key === 'cel');           // a Cél után helyezzük
-  base.splice(idx + 1, 0, naplo);
-  return base;
-})();
+const BKM_FIELDS = [
+  { key: 'nev', label: 'Feladat', type: 'text', required: true, list: true },
+  { key: 'kerte', label: 'Ki kérte', type: 'text', list: true },
+  { key: 'hatarido', label: 'Határidő', type: 'date', list: true },
+  { key: 'allapot', label: 'Státusz', type: 'select', list: true, badge: true, options: [
+      'Nyitott', 'Folyamatban', 'Lezárva'
+  ]},
+  { key: 'megjegyzes', label: 'Megjegyzés', type: 'textarea' }
+];
+
+/**
+ * A BKM napi napló külön "rejtett" kategória (nem fül). Minden bejegyzés egy
+ * rekord: { datum, szoveg }. Ugyanazon a tárolón megy (helyi + felhő szinkron).
+ */
+export const BKM_NAPLO_KEY = 'bkm_naplo';
 
 export const CONFIG = {
   appName: 'Munkanyilvántartó',

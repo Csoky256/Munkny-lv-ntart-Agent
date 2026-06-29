@@ -142,7 +142,7 @@ function renderCard(r, category, onOpen) {
   const head = el('div', 'card-head');
   const left = el('div');
   left.appendChild(el('div', 'card-title', r[category.titleField] || '(névtelen)'));
-  left.appendChild(el('div', 'card-sub', [r.munkanem, r.megrendelo].filter(Boolean).join(' · ')));
+  left.appendChild(el('div', 'card-sub', [r.munkanem, r.megrendelo, r.kerte].filter(Boolean).join(' · ')));
   head.appendChild(left);
   if (r.prioritas) head.appendChild(prioBadge(r.prioritas));
   card.appendChild(head);
@@ -293,6 +293,66 @@ function buildField(f, value) {
   if (f.type !== 'multiselect') { input.id = 'f_' + f.key; input.dataset.key = f.key; }
   wrap.appendChild(lab); wrap.appendChild(input);
   return wrap;
+}
+
+/* ----------------------- napi napló nézet (önálló) ----------------------- */
+
+/**
+ * Napi napló nézet. entries: store-rekordok [{id, datum, szoveg}].
+ * handlers: { onAdd(datum, szoveg), onDelete(id) }
+ */
+export function renderJournal(entries, handlers) {
+  const wrap = el('div', 'journal');
+
+  // Hozzáadó sor
+  const add = el('div', 'journal-add');
+  const dateIn = el('input'); dateIn.type = 'date'; dateIn.value = todayStr();
+  const textIn = el('input'); textIn.type = 'text'; textIn.placeholder = 'Mit csináltam ma… (Enter a mentéshez)';
+  const btn = el('button', 'btn primary', '+ Bejegyzés');
+  const submit = () => {
+    const t = textIn.value.trim();
+    if (!t) return;
+    handlers.onAdd(dateIn.value || todayStr(), t);
+    textIn.value = '';
+  };
+  btn.onclick = submit;
+  textIn.addEventListener('keydown', ev => { if (ev.key === 'Enter') { ev.preventDefault(); submit(); } });
+  add.appendChild(dateIn); add.appendChild(textIn); add.appendChild(btn);
+  wrap.appendChild(add);
+
+  if (!entries.length) {
+    wrap.appendChild(el('div', 'journal-empty', 'Még nincs bejegyzés. Írd be, mit csináltál ma!'));
+    return wrap;
+  }
+
+  // Dátum szerint csoportosítva, legújabb nap elöl
+  const byDay = {};
+  entries.forEach(e => { (byDay[e.datum] = byDay[e.datum] || []).push(e); });
+  Object.keys(byDay).sort((a, b) => (a < b ? 1 : -1)).forEach(datum => {
+    const day = el('div', 'journal-day' + (isThisWeek(datum) ? ' thisweek' : ''));
+    const head = el('div', 'journal-day-head');
+    head.appendChild(el('span', null, formatDateHu(datum)));
+    if (isThisWeek(datum)) head.appendChild(badge('ezen a héten', 'blue'));
+    day.appendChild(head);
+    const list = el('div', 'naplo-list');
+    byDay[datum].forEach(e => {
+      const row = el('div', 'naplo-item' + (isThisWeek(datum) ? ' thisweek' : ''));
+      row.appendChild(el('span', 'naplo-text', e.szoveg));
+      const del = el('button', 'naplo-del', '✕'); del.type = 'button'; del.title = 'Törlés';
+      del.onclick = () => handlers.onDelete(e.id);
+      row.appendChild(del);
+      list.appendChild(row);
+    });
+    day.appendChild(list);
+    wrap.appendChild(day);
+  });
+  return wrap;
+}
+
+/** Napló-statisztika az összesítő sávhoz */
+export function journalStats(entries) {
+  const week = entries.filter(e => isThisWeek(e.datum)).length;
+  return { total: entries.length, week };
 }
 
 export function collectForm(category, editingId) {

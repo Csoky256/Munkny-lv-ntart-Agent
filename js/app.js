@@ -2,14 +2,14 @@
  * Vezérlő – állapot, események összekötése, beállítás/felhő-panel.
  */
 
-import { CONFIG, getCategory } from './schema.js';
+import { CONFIG, getCategory, BKM_NAPLO_KEY } from './schema.js';
 import { storeFor, localStore, cloudStore } from './store.js';
 import { isConfigured, getSupabaseConfig, setSupabaseConfig } from './supabaseClient.js';
 import { getUser, signIn, signUp, signOut } from './auth.js';
 import {
   $, el, toast, showLoader,
   renderTabs, populateStatusFilter, renderSummary, renderCards, renderTable,
-  buildForm, collectForm
+  buildForm, collectForm, renderJournal, journalStats
 } from './ui.js';
 
 const state = {
@@ -17,9 +17,14 @@ const state = {
   user: null,             // bejelentkezett felhasználó (felhő módban)
   catKey: CONFIG.categories[0].key,
   view: 'cards',          // 'cards' | 'table'
+  bkmView: 'munkak',      // BKM fül alnézete: 'munkak' | 'naplo'
   records: [],
+  journal: [],
   editingId: null
 };
+
+/** Igaz, ha épp a BKM napi napló nézetét mutatjuk */
+function isJournalView() { return state.catKey === 'bkm' && state.bkmView === 'naplo'; }
 
 document.addEventListener('DOMContentLoaded', init);
 
@@ -84,6 +89,7 @@ function wireEvents() {
 
 function selectCategory(key) {
   state.catKey = key;
+  state.bkmView = 'munkak';
   renderTabs(CONFIG.categories, key, selectCategory);
   populateStatusFilter(getCategory(key));
   $('#search').value = '';
@@ -92,16 +98,78 @@ function selectCategory(key) {
   load();
 }
 
+/** BKM alfül-kapcsoló (Munkák / Napi napló) megjelenítése */
+function updateSubnav() {
+  const nav = $('#subnav');
+  if (state.catKey !== 'bkm') { nav.hidden = true; nav.innerHTML = ''; return; }
+  nav.hidden = false; nav.innerHTML = '';
+  [['munkak', '📋 Munkák'], ['naplo', '📝 Napi napló']].forEach(([key, label]) => {
+    const b = el('button', state.bkmView === key ? 'active' : null, label);
+    b.onclick = () => { if (state.bkmView !== key) { state.bkmView = key; load(); } };
+    nav.appendChild(b);
+  });
+}
+
 async function load() {
+  updateSubnav();
+  $('#toolbar').hidden = isJournalView();
   showLoader(true);
   try {
-    state.records = await store().list(state.catKey);
-    render();
+    if (isJournalView()) {
+      state.journal = await store().list(BKM_NAPLO_KEY);
+      renderJournalView();
+    } else {
+      state.records = await store().list(state.catKey);
+      render();
+    }
   } catch (err) {
     onError(err);
   } finally {
     showLoader(false);
   }
+}
+
+/* ----------------------- napi napló nézet ----------------------- */
+
+function renderJournalView() {
+  const entries = state.journal.map(r => ({ id: r.id, datum: r.datum, szoveg: r.szoveg }));
+  const st = journalStats(entries);
+  const s = $('#summary'); s.innerHTML = '';
+  s.appendChild(miniStat(st.week, 'bejegyzés ezen a héten'));
+  s.appendChild(miniStat(st.total, 'összes bejegyzés'));
+
+  $('#emptyState').hidden = true;
+  const content = $('#content'); content.innerHTML = '';
+  content.appendChild(renderJournal(entries, { onAdd: addJournalEntry, onDelete: deleteJournalEntry }));
+}
+
+function miniStat(num, lbl) {
+  const d = el('div', 'stat');
+  d.appendChild(el('div', 'num', String(num)));
+  d.appendChild(el('div', 'lbl', lbl));
+  return d;
+}
+
+async function addJournalEntry(datum, szoveg) {
+  showLoader(true);
+  try {
+    await store().save(BKM_NAPLO_KEY, { datum, szoveg });
+    state.journal = await store().list(BKM_NAPLO_KEY);
+    renderJournalView();
+    toast('Bejegyzés mentve ✓');
+  } catch (err) { onError(err); }
+  finally { showLoader(false); }
+}
+
+async function deleteJournalEntry(id) {
+  if (!confirm('Törlöd ezt a naplóbejegyzést?')) return;
+  showLoader(true);
+  try {
+    await store().remove(BKM_NAPLO_KEY, id);
+    state.journal = await store().list(BKM_NAPLO_KEY);
+    renderJournalView();
+  } catch (err) { onError(err); }
+  finally { showLoader(false); }
 }
 
 /* ----------------------- megjelenítés ----------------------- */
@@ -118,7 +186,7 @@ function render() {
     if (pay && r.fizetes_statusz !== pay) return false;
     if (hideClosed && /lezár/i.test(r.allapot || '')) return false;
     if (q) {
-      const hay = [r.nev, r.megrendelo, r.cim, r.hrsz, r.etdr, r.munkanem].join(' ').toLowerCase();
+      const hay = [r.nev, r.megrendelo, r.kerte, r.cim, r.hrsz, r.etdr, r.munkanem].join(' ').toLowerCase();
       if (!hay.includes(q)) return false;
     }
     return true;

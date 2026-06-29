@@ -126,6 +126,21 @@ table.grid tbody tr:hover { background: #f5f8ff; }
 .steps { margin: 8px 0 0 18px; padding: 0; color: var(--muted); font-size: 13px; }
 .steps li { margin: 4px 0; }
 
+/* BKM alfül-kapcsoló */
+.subnav { display: flex; gap: 6px; margin-bottom: 14px; }
+.subnav button { border: 1px solid var(--line); background: #fff; color: var(--muted); padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 13.5px; font-weight: 600; }
+.subnav button.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+/* Napi napló nézet (önálló) */
+.journal { background: var(--card); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); padding: 16px; }
+.journal-add { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding-bottom: 14px; margin-bottom: 14px; border-bottom: 1px solid var(--line); }
+.journal-add input[type="date"] { width: auto; border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; font-size: 14px; }
+.journal-add input[type="text"] { flex: 1; min-width: 200px; border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; font-size: 14px; }
+.journal-day { margin-bottom: 14px; }
+.journal-day-head { font-weight: 700; font-size: 13px; color: var(--ink); margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
+.journal-day.thisweek .journal-day-head { color: var(--brand); }
+.journal-empty { color: var(--muted); text-align: center; padding: 24px 8px; }
+
 /* Napi munkanapló mező */
 .naplo { display: flex; flex-direction: column; gap: 10px; }
 .naplo-list { display: flex; flex-direction: column; gap: 6px; }

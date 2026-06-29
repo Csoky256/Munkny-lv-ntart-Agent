@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Munkanyilvántartó</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗂️</text></svg>">
-  <link rel="stylesheet" href="css/styles.css?v=5">
+  <link rel="stylesheet" href="css/styles.css?v=6">
 </head>
 <body>
   <header class="topbar">
@@ -23,9 +23,11 @@
   </header>
 
   <main>
+    <div class="subnav" id="subnav" hidden></div>
+
     <section class="summary" id="summary"></section>
 
-    <section class="toolbar">
+    <section class="toolbar" id="toolbar">
       <input type="search" id="search" placeholder="Keresés (név, megrendelő, cím, HRSZ…)">
       <select id="statusFilter"><option value="">Minden állapot</option></select>
       <select id="payFilter">
@@ -78,6 +80,6 @@
   <div class="toast" id="toast" hidden></div>
   <div class="loader" id="loader"><div class="spinner"></div></div>
 
-  <script type="module" src="js/app.js?v=5"></script>
+  <script type="module" src="js/app.js?v=6"></script>
 </body>
 </html>
